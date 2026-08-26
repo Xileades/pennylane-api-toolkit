@@ -1,0 +1,30 @@
+# === Secrets — never commit ===
+tokens.json
+*.token
+*secret*
+*credential*
+*.pfx
+*.key
+*.pem
+*.p12
+
+# === Operational state ===
+# The deduplication journal holds supplier names, invoice numbers and amounts,
+# and its `source` field often names individuals. It is shared through a network
+# share, not through git.
+factures-log.json
+*-log.json
+*.lock
+_backups/
+
+# === Working files ===
+invoices-temp/
+*.pdf
+*.log
+*.tmp
+*.bak
+
+# === OS junk ===
+Thumbs.db
+desktop.ini
+.DS_Store

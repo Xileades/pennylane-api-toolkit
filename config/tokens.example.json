@@ -1,0 +1,24 @@
+{
+  "_comment": "Copy to %USERPROFILE%\\.pennylane\\tokens.json and paste one token per company. One file per person. Never commit it, never put it on a shared drive.",
+  "_doc": "Company API token: Pennylane > Settings > Connectivity > Developers > Generate an API Token. A token is bound to ONE company, so a group needs one per entity.",
+  "entites": {
+    "company-a": {
+      "label": "Company A Ltd",
+      "token": "PASTE_TOKEN_HERE",
+      "_scopes_needed": "supplier_invoices:all, suppliers:all, file_attachments:all, transactions:all, customer_invoices:all, ledger_entries:all, exports:fec"
+    },
+    "company-b": {
+      "label": "Company B SAS",
+      "token": "PASTE_TOKEN_HERE"
+    },
+    "holding": {
+      "label": "Group Holding",
+      "token": "PASTE_TOKEN_HERE"
+    },
+    "no-api-entity": {
+      "label": "Small entity without API access",
+      "token": null,
+      "note": "Plan does not include API access. PLHdr throws an explicit error for this slug on purpose: handle it manually and say so in the report rather than failing mid-batch."
+    }
+  }
+}

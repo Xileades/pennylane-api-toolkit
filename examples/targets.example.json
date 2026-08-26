@@ -1,0 +1,5 @@
+{
+  "_comment": "Maps an internet message-id to a short label used in output filenames and logs. Get the ids from your mail client or an API search. Used by lib/outlook-extract.ps1 and lib/outlook-classer.ps1.",
+  "<0101019ee9c242a4-example@eu-west-1.amazonses.com>": "acme-corp",
+  "<CAF=abc123@mail.example.com>": "utilities-provider"
+}
