@@ -4,6 +4,10 @@
 
     .\outlook-classer.ps1 -Targets .\to-file.json -Folder 'Accounting/Supplier invoices' -Test
     .\outlook-classer.ps1 -Targets .\to-file.json -Folder 'Accounting/Supplier invoices'
+    .\outlook-classer.ps1 -Targets .\to-file.json -Folder 'Accounting/Supplier invoices' -Store 'MERCADO'
+
+    -Store (alias -Boite): only scan stores whose DisplayName contains one of
+    the values (case-insensitive) -- same filter as outlook-extract.ps1.
 
     targets.json maps message-id to a label, same shape as outlook-extract.ps1.
     Put in it ONLY documents that were imported successfully, or whose duplicate
@@ -18,6 +22,7 @@ param(
     [Parameter(Mandatory=$true)][string]$Targets,
     [Parameter(Mandatory=$true)][string]$Folder,   # 'Parent/Child' or just 'Child'
     [string]$Since = (Get-Date).AddDays(-30).ToString('yyyy-MM-dd'),
+    [Alias('Boite')][string[]]$Store,
     [switch]$Test
 )
 $ErrorActionPreference = 'SilentlyContinue'
@@ -50,7 +55,19 @@ $done = @{}; $limit = if ($Test) { 1 } else { $moveMap.Count }
 
 $ol = New-Object -ComObject Outlook.Application
 $ns = $ol.GetNamespace('MAPI'); $ns.Logon() | Out-Null
-foreach ($st in $ns.Stores) {
+$stores = @($ns.Stores)
+if ($Store) {
+    $stores = @($stores | Where-Object {
+        $dn = $_.DisplayName
+        @($Store | Where-Object { $dn -like ('*' + $_ + '*') }).Count -gt 0
+    })
+    "STORE FILTER: $($Store -join ', ') -> $($stores.Count) store(s) kept" | Add-Content $log
+    if ($stores.Count -eq 0) {
+        'WARNING: no store matches -Store. Available stores:' | Add-Content $log
+        foreach ($s in $ns.Stores) { ('  - ' + $s.DisplayName) | Add-Content $log }
+    }
+}
+foreach ($st in $stores) {
     if ($done.Count -ge $limit) { break }
     try {
         $root = $st.GetRootFolder()

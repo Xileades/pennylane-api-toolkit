@@ -160,6 +160,9 @@ a mail that failed, is doubtful, or is not an invoice.
 & <toolkit>\lib\outlook-classer.ps1 -Targets .\to-file.json -Folder 'Accounting/Supplier invoices'
 ```
 
+`-Store` (alias `-Boite`) works here too — same store filter as the extraction
+step.
+
 The script creates missing folders. **Always run `-Test` on one mail before the
 batch.** Record the mail's entry id in the journal.
 
