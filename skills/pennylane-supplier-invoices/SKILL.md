@@ -54,11 +54,17 @@ PLSeen $journal $party $number $date $amount
 - **Batch extraction** from Outlook:
 
 ```powershell
-& <toolkit>\lib\outlook-extract.ps1 -Targets .\targets.json -Since 2026-08-01
+& <toolkit>\lib\outlook-extract.ps1 -Targets .\targets.json -Since 2026-08-01 -Store 'Accounting'
 ```
 
-The log reports `ITEMS SCANNED: n`. A **zero on an active mailbox is a date
-format bug**, not an empty mailbox — see Lessons.
+`-Store` (alias `-Boite`) restricts the scan to stores whose display name
+contains one of the values — essential with delegated mailboxes: without it,
+stores are walked in arbitrary enumeration order and the run can time out
+before reaching the right one. The log reports `ITEMS SCANNED (<store>): n`
+per store.
+
+The log reports `ITEMS SCANNED: n` (total). A **zero on an active mailbox is a
+date format bug**, not an empty mailbox — see Lessons.
 
 Name files `YYYY-MM-DD_supplier_entity.pdf`.
 

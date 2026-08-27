@@ -3,6 +3,11 @@
     internet message-id. Windows + Outlook desktop (COM) only.
 
     .\outlook-extract.ps1 -Targets .\targets.json -Dest .\invoices-temp -Since 2026-08-01
+    .\outlook-extract.ps1 -Targets .\targets.json -Since 2026-08-01 -Store 'MERCADO','Accounting'
+
+    -Store (alias -Boite): only scan stores whose DisplayName contains one of
+    the values (case-insensitive). Essential with many delegated mailboxes:
+    without it, enumeration order can exhaust the run before the right store.
 
     targets.json maps message-id to a label used in the output filename:
         { "<message-id@example.com>": "acme-corp", ... }
@@ -20,7 +25,8 @@
 param(
     [Parameter(Mandatory=$true)][string]$Targets,
     [string]$Dest,
-    [string]$Since = (Get-Date).AddDays(-30).ToString('yyyy-MM-dd')
+    [string]$Since = (Get-Date).AddDays(-30).ToString('yyyy-MM-dd'),
+    [Alias('Boite')][string[]]$Store
 )
 $ErrorActionPreference = 'SilentlyContinue'
 
@@ -77,8 +83,21 @@ function ScanFolder($folder) {
 # GetDefaultFolder can hand back empty stores.
 $ol = New-Object -ComObject Outlook.Application
 $ns = $ol.GetNamespace('MAPI'); $ns.Logon() | Out-Null
-foreach ($st in $ns.Stores) {
+$stores = @($ns.Stores)
+if ($Store) {
+    $stores = @($stores | Where-Object {
+        $dn = $_.DisplayName
+        @($Store | Where-Object { $dn -like ('*' + $_ + '*') }).Count -gt 0
+    })
+    "STORE FILTER: $($Store -join ', ') -> $($stores.Count) store(s) kept" | Add-Content $log
+    if ($stores.Count -eq 0) {
+        'WARNING: no store matches -Store. Available stores:' | Add-Content $log
+        foreach ($s in $ns.Stores) { ('  - ' + $s.DisplayName) | Add-Content $log }
+    }
+}
+foreach ($st in $stores) {
     if ($found.Count -ge $targetMap.Count) { break }
+    $before = $script:scanned
     try {
         $root = $st.GetRootFolder()
         "STORE: $($st.DisplayName)" | Add-Content $log
@@ -90,6 +109,7 @@ foreach ($st in $ns.Stores) {
             foreach ($sub in $inbox.Folders) { ScanFolder $sub; if ($found.Count -ge $targetMap.Count) { break } }
         }
     } catch { "STORE-ERROR $($st.DisplayName)" | Add-Content $log }
+    "ITEMS SCANNED ($($st.DisplayName)): $($script:scanned - $before)" | Add-Content $log
 }
 
 "ITEMS SCANNED: $scanned" | Add-Content $log

@@ -94,8 +94,11 @@ function PLGetAll($e, $path, $filter, $sort, $limit) {
     $hd = PLHdr $e; $out = @(); $cur = $null
     $qs = @("limit=$limit")
     if ($filter) {
+        # PS 5.1 has no -AsArray, and ConvertTo-Json unwraps 1-element arrays
+        # (a bare hashtable serialises as an object): test the JSON itself,
+        # not Count -- on a hashtable, Count returns the number of KEYS.
         $json = $filter | ConvertTo-Json -Depth 5 -Compress
-        if ($filter.Count -eq 1) { $json = "[$json]" }   # PS5.1 has no -AsArray
+        if ($json -notmatch '^\s*\[') { $json = "[$json]" }
         $qs += 'filter=' + [uri]::EscapeDataString($json)
     }
     if ($sort) { $qs += "sort=$sort" }

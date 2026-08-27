@@ -413,7 +413,17 @@ array, and the API ignores or rejects it.
 **Cause.** `ConvertTo-Json` unwraps single-element arrays and PowerShell 5.1 has
 no `-AsArray`.
 
-**Fix.** Wrap manually when `Count -eq 1`, as `PLGetAll` does.
+**Fix.** Test the serialised JSON itself and wrap when it does not start with
+`[`, as `PLGetAll` does:
+
+```powershell
+$json = $filter | ConvertTo-Json -Depth 5 -Compress
+if ($json -notmatch '^\s*\[') { $json = "[$json]" }
+```
+
+Testing `$filter.Count -eq 1` is **not** enough: on a bare hashtable, `Count`
+returns the number of *keys*, so a single filter passed without `@(...)` slips
+through unwrapped.
 
 ---
 
@@ -437,6 +447,12 @@ mail. `lib/outlook-extract.ps1` logs the count for this reason.
 
 Related: use `New-Object -ComObject Outlook.Application` followed by
 `$ns.Logon()`. `GetActiveObject` and `GetDefaultFolder` can return empty stores.
+
+Related too: with many delegated mailboxes, `$ns.Stores` is walked in an
+arbitrary enumeration order — a run can spend its whole time budget on the
+wrong mailboxes before reaching the one that matters. `lib/outlook-extract.ps1`
+takes `-Store` (alias `-Boite`) to restrict the scan, and logs the scanned-item
+count **per store** as well as the total.
 
 ---
 

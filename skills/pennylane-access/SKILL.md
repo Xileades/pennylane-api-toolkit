@@ -137,6 +137,11 @@ ledger accounts, never on an invoice line.
 `lt`, `lteq`, `gt`, `gteq`, `in`, `not_in` (array required), `start_with` (ILIKE).
 Dates as `YYYY-MM-DD`.
 
+**PS 5.1:** no `-AsArray`, and `ConvertTo-Json` unwraps a single-element array
+(a bare hashtable serialises as an object). `PLGetAll` re-wraps the JSON when
+needed; if you build `filter` by hand, check the string starts with `[` before
+URL-encoding it.
+
 Filterable fields **vary per endpoint** — check before assuming. Paginated
 response: `{ items, has_more, next_cursor }`. `limit` defaults to 20, max 100
 (1000 on `ledger_accounts`, `trial_balance`, changelogs).
