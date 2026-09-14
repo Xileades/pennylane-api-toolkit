@@ -1,0 +1,9 @@
+{
+  "name": "pennylane-api-toolkit",
+  "version": "0.1.0",
+  "description": "PowerShell library and six Claude skills for the Pennylane Company API v2: access, supplier and customer invoices, reconciliation, accounting exports, analysis.",
+  "author": { "name": "Xileades" },
+  "homepage": "https://github.com/Xileades/pennylane-api-toolkit",
+  "repository": "https://github.com/Xileades/pennylane-api-toolkit",
+  "license": "MIT"
+}
