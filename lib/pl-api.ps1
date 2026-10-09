@@ -102,7 +102,7 @@ function PLGetAll($e, $path, $filter, $sort, $limit) {
         $qs += 'filter=' + [uri]::EscapeDataString($json)
     }
     if ($sort) { $qs += "sort=$sort" }
-    $base = "$script:PLBASE/$path?" + ($qs -join '&')
+    $base = "$script:PLBASE/$($path.TrimStart('/'))?" + ($qs -join '&')
     do {
         $u = $base; if ($cur) { $u += "&cursor=$cur" }
         $r = Invoke-RestMethod -Uri $u -Headers $hd -Method Get
