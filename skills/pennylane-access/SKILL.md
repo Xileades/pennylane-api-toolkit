@@ -18,20 +18,31 @@ Toolkit: <https://github.com/Xileades/pennylane-api-toolkit>
 
 ## 1. Load the library
 
-```powershell
-. <toolkit>\lib\pl-api.ps1
-. <toolkit>\lib\journal.ps1     # only when a shared journal is in use
-```
+The library ships **with this plugin**: `lib\` sits two levels above this
+`SKILL.md` (`<plugin root>\lib\pl-api.ps1`). Load that copy and no other.
 
-If the library sits on a network share, PowerShell's `RemoteSigned` policy will
-refuse it ("is not digitally signed"). Copy it to a local cache and dot-source
-the copy, refreshed at every run so it cannot drift:
+**Do not load another copy of `pl-api.ps1` found on the machine** — a team
+share, an older plugin cache, a script folder. Other lineages exist (one uses
+French function names such as `PLMatchFournisseur`) and some still carry the
+pre-1.0.1 `PLGetAll` defect: every list comes back **empty, without any error**,
+so a search "finds nothing" when the data is there.
+
+PowerShell's `RemoteSigned` policy may refuse to dot-source the file where it
+sits ("is not digitally signed"). Copy it to a local cache and dot-source the
+copy, refreshed from the plugin at every run so it cannot drift:
 
 ```powershell
-$c = "$env:USERPROFILE\.pennylane\scripts"
+$lib = '<plugin root>\lib'          # two levels above this SKILL.md
+$c   = "$env:USERPROFILE\.pennylane\scripts"
 New-Item -ItemType Directory -Path $c -Force | Out-Null
-Copy-Item '<share>\lib\*.ps1' $c -Force
+Copy-Item "$lib\*.ps1" $c -Force
 . "$c\pl-api.ps1"
+. "$c\journal.ps1"                  # only when a shared journal is in use
+
+# Guard: refuse a library that still has the PLGetAll defect (fixed in 1.0.1).
+if ((Get-Command PLGetAll).Definition -notmatch '\$\(\$path') {
+  throw "pl-api.ps1 predates 1.0.1 (PLGetAll returns empty lists) - load the plugin's own lib"
+}
 ```
 
 Do **not** work around this by setting the policy to `Bypass`: that disables the

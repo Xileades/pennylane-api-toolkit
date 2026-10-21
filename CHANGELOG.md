@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.2 — 2026-10-21
+
+Fix (`pennylane-access`): section 1 said to load `<toolkit>\lib` or to copy from `<share>\lib`
+without saying which copy. On a machine that also holds an older team copy of `pl-api.ps1`, that
+copy got loaded — and it still carried the pre-1.0.1 `PLGetAll` defect, so every list came back
+empty without any error. The skill now names the plugin's own `lib\` as the only source, warns
+against other copies, and adds a guard that refuses a library without the 1.0.1 fix.
+
 ## 1.0.1 — 2026-10-09
 
 Fix: `PLGetAll` always returned an empty list, without any error. In `"$script:PLBASE/$path?"`,
