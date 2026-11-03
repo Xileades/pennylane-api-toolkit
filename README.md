@@ -100,6 +100,33 @@ never on a shared drive and never in git. See
 than one service token: individual traceability of who imported what, and
 individual revocation when someone leaves.
 
+### Optional: tokens in Azure Key Vault instead of a file
+
+If your people sign in to Windows with Entra ID (Microsoft 365), the tokens can
+stay in an Azure Key Vault and be read **at run time, in memory**, with the
+user's own Windows sign-in — no password prompt, no secret on disk, nothing to
+copy when someone gets a new PC. Put a `config.json` (it holds **no** secret)
+next to where `tokens.json` would be:
+
+```powershell
+Copy-Item .\config\config.example.json "$env:USERPROFILE\.pennylane\config.json"
+notepad "$env:USERPROFILE\.pennylane\config.json"   # vault URL, app id, companies
+```
+
+One secret per company **and per person**, named by default
+`pennylane-token-{company}-{user}` (`{user}` = the part of the sign-in before `@`,
+letters and digits only: `jane.doe@contoso.com` → `janedoe`). Grant each person
+**Key Vault Secrets User on their own secrets only**, so per-person traceability
+and revocation are kept. One-time setup: an Entra app registration (public client,
+no secret) with the delegated permission *Azure Key Vault / user_impersonation*,
+admin consent, and the redirect URI
+`ms-appx-web://microsoft.aad.brokerplugin/<app id>`. Because `config.json` is not
+secret, it can be pushed to every workstation by Intune.
+
+Without `config.json`, nothing changes: the library reads `tokens.json` as before.
+The skills do not know which source is in use. The one trap of this mode is in
+[`docs/PITFALLS.md`](docs/PITFALLS.md) § 24.
+
 A company with no API access (a small SCI, an entity whose plan does not include
 the API) is declared with `"token": null`. `PLHdr` then throws an explicit error
 instead of failing obscurely mid-batch — that entity is handled manually and the
