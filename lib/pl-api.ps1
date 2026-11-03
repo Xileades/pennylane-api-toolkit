@@ -33,17 +33,93 @@ function PLShare {
 
 # --- Auth ------------------------------------------------------------------
 
+# Two token sources, chosen per user in %USERPROFILE%\.pennylane\config.json:
+#   "file"     (default, also when config.json is absent): tokens.json, as before.
+#   "keyvault" : tokens are read at run time from an Azure Key Vault with the
+#                user's own Windows sign-in (WAM, silent). Nothing secret on disk.
+# See config/config.example.json and docs/PITFALLS.md section 24.
+
+function PLConfig {
+    if ($script:PLCFG) { return $script:PLCFG }
+    $p = Join-Path (PLHome) 'config.json'
+    if (Test-Path -LiteralPath $p) {
+        $script:PLCFG = Get-Content -LiteralPath $p -Raw | ConvertFrom-Json
+    } else {
+        $script:PLCFG = [pscustomobject]@{ source = 'file' }
+    }
+    return $script:PLCFG
+}
+
+# Access token for Key Vault, obtained SILENTLY from the Windows account broker
+# (WAM) with the signed-in Entra ID account. No password, no client secret.
+# Requires an Entra-joined (or registered) Windows device and an app registration
+# with the redirect URI ms-appx-web://microsoft.aad.brokerplugin/<clientId>.
+# PITFALL: asking by scope returns Success with an EMPTY token; the v1 "resource"
+# property is required, and in PowerShell 5.1 it can only be added by reflection.
+function PLVaultToken {
+    if ($script:PLKVJ -and $script:PLKVJ.Expires -gt (Get-Date).AddMinutes(5)) { return $script:PLKVJ.Token }
+    $kv = (PLConfig).keyvault
+    Add-Type -AssemblyName System.Runtime.WindowsRuntime
+    $asTaskG = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
+        $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and
+        $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]
+    $await = { param($op, [type]$t)
+        $tk = $asTaskG.MakeGenericMethod($t).Invoke($null, @($op)); $tk.Wait(-1) | Out-Null; $tk.Result }
+    $null = [Windows.Security.Authentication.Web.Core.WebAuthenticationCoreManager, Windows.Security.Authentication.Web.Core, ContentType = WindowsRuntime]
+    $null = [Windows.Security.Authentication.Web.Core.WebTokenRequestResult, Windows.Security.Authentication.Web.Core, ContentType = WindowsRuntime]
+    $null = [Windows.Security.Credentials.WebAccountProvider, Windows.Security.Credentials, ContentType = WindowsRuntime]
+    $mgr  = [Windows.Security.Authentication.Web.Core.WebAuthenticationCoreManager]
+    $prov = & $await ($mgr::FindAccountProviderAsync('https://login.microsoft.com', 'organizations')) ([Windows.Security.Credentials.WebAccountProvider])
+    $req  = New-Object Windows.Security.Authentication.Web.Core.WebTokenRequest($prov, '', $kv.clientId)
+    [void][System.Collections.Generic.IDictionary[string, string]].GetMethod('Add').Invoke($req.Properties, @('resource', 'https://vault.azure.net'))
+    $res  = & $await ($mgr::GetTokenSilentlyAsync($req)) ([Windows.Security.Authentication.Web.Core.WebTokenRequestResult])
+    if ($res.ResponseStatus -ne 'Success') {
+        throw "Key Vault: Windows sign-in refused ($($res.ResponseStatus) $($res.ResponseError.ErrorCode)). Is Windows signed in with your work account?"
+    }
+    $d = @($res.ResponseData)[0]
+    if ([string]::IsNullOrEmpty($d.Token)) { throw 'Key Vault: empty access token (see PITFALLS section 24).' }
+    $script:PLKVJ = @{ Token = $d.Token; Account = $d.WebAccount.UserName; Expires = (Get-Date).AddMinutes(50) }
+    return $d.Token
+}
+
+# Short user id used in secret names: jane.doe@contoso.com -> janedoe
+function PLVaultUser {
+    if (-not $script:PLKVJ) { [void](PLVaultToken) }
+    return (($script:PLKVJ.Account -split '@')[0] -replace '[^a-zA-Z0-9]', '').ToLower()
+}
+
+# Same shape in both modes (.<slug>.label / .token / .note): PLEntites, PLHdr and
+# the skills do not care where the tokens came from. Key Vault tokens stay in memory.
 function PLTokens {
     if ($script:PLTOK) { return $script:PLTOK }
+    $cfg = PLConfig
+    if ($cfg.source -eq 'keyvault') {
+        $kv  = $cfg.keyvault
+        $h   = @{ Authorization = 'Bearer ' + (PLVaultToken) }
+        $pat = if ($kv.secretName) { $kv.secretName } else { 'pennylane-token-{company}-{user}' }
+        $usr = PLVaultUser
+        $o = [ordered]@{}
+        foreach ($p in $cfg.entites.PSObject.Properties) {
+            $tok = $null
+            if ($p.Value.api -ne $false) {
+                $n = $pat.Replace('{company}', $p.Name).Replace('{user}', $usr)
+                try { $tok = (Invoke-RestMethod -Uri "$($kv.vaultUrl.TrimEnd('/'))/secrets/$($n)?api-version=7.4" -Headers $h).value }
+                catch { throw "Key Vault: secret '$n' not readable ($($_.Exception.Response.StatusCode)). Missing 'Key Vault Secrets User' role on it?" }
+            }
+            $o[$p.Name] = [pscustomobject]@{ label = $p.Value.label; token = $tok; note = $p.Value.note }
+        }
+        $script:PLTOK = [pscustomobject]$o
+        return $script:PLTOK
+    }
     $p = Join-Path (PLHome) 'tokens.json'
     if (-not (Test-Path -LiteralPath $p)) {
-        throw "tokens.json not found: $p`nCopy config/tokens.example.json there and paste your tokens."
+        throw "tokens.json not found: $p`nCopy config/tokens.example.json there and paste your tokens, or use the keyvault source (config/config.example.json)."
     }
     $script:PLTOK = (Get-Content -LiteralPath $p -Raw | ConvertFrom-Json).entites
     return $script:PLTOK
 }
 
-# Every company slug declared in tokens.json.
+# Every company slug declared (tokens.json, or config.json in keyvault mode).
 function PLEntites { return @((PLTokens).PSObject.Properties.Name) }
 
 # A Company API token is bound to ONE company: pick the right slug per call.

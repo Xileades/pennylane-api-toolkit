@@ -49,7 +49,12 @@ Do **not** work around this by setting the policy to `Bypass`: that disables the
 protection machine-wide.
 
 If `pl-api.ps1` throws "tokens.json not found", send the user to set it up from
-`config/tokens.example.json`. Never guess a token, never reuse someone else's.
+`config/tokens.example.json` — or, if their tokens are kept in Azure Key Vault,
+from `config/config.example.json`. Never guess a token, never reuse someone else's.
+
+If it throws a "Key Vault:" error, report it as is: it names the secret and the
+likely cause (Windows not signed in with the work account, missing
+*Key Vault Secrets User* role). Do not fall back to asking for tokens in chat.
 
 ## 2. Companies and tokens
 
@@ -60,8 +65,14 @@ one token per entity, kept in one file per person:
 %USERPROFILE%\.pennylane\tokens.json        (override with PENNYLANE_HOME)
 ```
 
-`PLEntites` lists the declared slugs. An entity with `"token": null` has no API
-access — `PLHdr` throws an explicit error for it on purpose. Handle that entity
+Alternatively, when `%USERPROFILE%\.pennylane\config.json` says
+`"source": "keyvault"`, the same tokens are read from Azure Key Vault at run time
+with the user's Windows sign-in, and held in memory only. Nothing changes for the
+skills: `PLEntites` and `PLHdr` behave the same in both modes. `PLConfig` shows
+which source is active.
+
+`PLEntites` lists the declared slugs. An entity with `"token": null` (or
+`"api": false` in `config.json`) has no API access — `PLHdr` throws an explicit error for it on purpose. Handle that entity
 manually and **say so in the report**: a group total that silently drops an
 entity is a wrong total.
 

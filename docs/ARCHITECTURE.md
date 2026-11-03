@@ -30,6 +30,16 @@ The toolkit keeps them in a single file, keyed by a short slug:
 `PLHdr 'company-a'` returns the right `Authorization` header; `PLEntites` lists
 every slug declared. Override the location with `PENNYLANE_HOME`.
 
+**Second source, since 1.1.0: Azure Key Vault.** When
+`%USERPROFILE%\.pennylane\config.json` says `"source": "keyvault"`, `PLTokens`
+reads one secret per company and per person from the vault, with an access token
+obtained silently from the Windows account broker (WAM) for the signed-in user.
+It returns the same object shape as the file, so `PLEntites`, `PLHdr` and every
+skill are unchanged; the tokens live in memory only. `config.json` carries the
+vault URL, the app id and the list of companies — nothing secret — so it can be
+versioned or deployed by device management. The per-person model below is kept:
+each person reads only their own secrets.
+
 ### Why per-person tokens rather than one service token
 
 A token grants write access to the ledgers of a real company. With one shared

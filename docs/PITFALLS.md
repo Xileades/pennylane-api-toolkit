@@ -470,3 +470,36 @@ Not API quirks, but the habits that prevented the remaining incidents:
 - **Say what was not covered** — an entity without API access, a truncated
   period, records skipped for lack of a criterion. Silence about a gap reads as
   full coverage.
+
+---
+
+## 24. Key Vault mode: WAM returns "Success" with an empty token
+
+**Symptom.** With `"source": "keyvault"`, the Windows broker answers `Success`,
+yet the vault replies `401 Unauthorized` for every secret.
+
+**Cause.** A `WebTokenRequest` built with a v2 scope
+(`https://vault.azure.net/user_impersonation` or `/.default`) comes back
+`Success` with an **empty** token on the AAD account provider. Adding the
+`wam_compat = 2.0` property instead fails with a provider error. The request must
+carry the v1 `resource` property (`https://vault.azure.net`) and an empty scope.
+
+In Windows PowerShell 5.1 that property cannot be set the obvious way:
+`$req.Properties.Add(...)`, `.Insert(...)` and `$req.Properties['resource'] = ...`
+all fail on the WinRT map, and casting it to `IDictionary[string,string]` is
+refused. Only reflection through the interface works:
+
+```powershell
+[void][System.Collections.Generic.IDictionary[string, string]].GetMethod('Add').Invoke(
+    $req.Properties, @('resource', 'https://vault.azure.net'))
+```
+
+**Fix.** Already done in `PLVaultToken`, which also throws on an empty token
+rather than letting a `401` look like a missing permission. If you adapt the
+code, keep both.
+
+Related: the token is silent only for the account Windows is signed in with, on
+an Entra-joined or registered device, and only if the app registration has the
+redirect URI `ms-appx-web://microsoft.aad.brokerplugin/<app id>`. A `403` from the
+vault (rather than `401`) means the token is fine and the person lacks
+*Key Vault Secrets User* on that secret.
