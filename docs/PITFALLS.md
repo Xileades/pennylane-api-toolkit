@@ -62,9 +62,9 @@ transaction object nor the customer invoice has it.
 | Question | Field to read |
 |---|---|
 | Which links exist? | `GET /{supplier,customer}_invoices/{id}/matched_transactions` |
-| How much is left to pay? | `remaining_amount_with_tax` on the invoice |
+| How much is left to pay? | `remaining_amount_with_tax` on the invoice (see § 25) |
 | Transaction balance? | `outstanding_balance` |
-| Payment state (supplier) | `payment_status`, `reconciled`, `paid` |
+| Payment state (supplier) | `remaining_amount_with_tax` first; `payment_status` lags (§ 25) |
 
 The documentation never declares any field authoritative. The list of links is
 the only ground truth for "is it matched".
@@ -503,3 +503,30 @@ an Entra-joined or registered device, and only if the app registration has the
 redirect URI `ms-appx-web://microsoft.aad.brokerplugin/<app id>`. A `403` from the
 vault (rather than `401`) means the token is fine and the person lacks
 *Key Vault Secrets User* on that secret.
+
+---
+
+## 25. `payment_status` does not follow reconciliation; `remaining_amount_with_tax` does
+
+**Symptom.** A supplier invoice is matched to its bank transaction, the matching
+is confirmed by re-reading `matched_transactions`, yet `payment_status` still says
+`to_be_processed`. A filter on `payment_status in (to_be_paid, partially_paid)`
+meanwhile misses unpaid invoices that are also sitting in `to_be_processed`.
+
+**Cause.** Observed on 2026-11-04 on a single supplier invoice (one invoice, one
+transaction, same amount): `POST …/matched_transactions` returned `204`, the link
+appeared on re-read, `remaining_amount_with_tax` went from the negative invoice
+total to `0.0`, and `payment_status` stayed `to_be_processed`. The status appears
+to belong to Pennylane's payment workflow, not to reconciliation. **UNVERIFIED**
+whether it catches up later or on another trigger.
+
+On supplier invoices, `remaining_amount_with_tax` is **negative** while the
+invoice is unpaid (it reads as an amount owed), and `0` once settled. That is the
+API's convention, not a mapping error: compare absolute values when matching
+amounts.
+
+**Fix.** To answer "is it paid?", read `remaining_amount_with_tax` (non-zero =
+not settled), and `matched_transactions` for "is it matched?". Never report an
+invoice as paid or unpaid from `payment_status` alone, and do not use a
+`payment_status` filter as the complete list of unpaid supplier invoices.
+
