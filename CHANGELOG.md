@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.1 — 2026-11-04
+
+Documentation only. New pitfall (§ 25): `payment_status` does not follow
+reconciliation — a supplier invoice can stay `to_be_processed` after it is matched
+and settled — so it must not be used to say what is paid, and a `payment_status`
+filter is not the complete list of unpaid supplier invoices. `remaining_amount_with_tax`
+is the field to read (negative on unpaid supplier invoices, `0` once settled). The
+reconciliation and analysis skills now say so where they show the filter.
+
 ## 1.1.0 — 2026-11-03
 
 New, optional: tokens can be read from **Azure Key Vault** instead of `tokens.json`.

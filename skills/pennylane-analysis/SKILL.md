@@ -65,6 +65,13 @@ PLGetAll 'company-a' 'supplier_invoices' @(
 `payment_scheduled`, `payment_in_progress`, `payment_emitted`, `payment_found`,
 `paid_offline`, `fully_paid`). `reconciled` is not.
 
+> **Caution (observed 2026-11-04, § 25 of `docs/PITFALLS.md`).** `payment_status` does
+> not follow reconciliation: a supplier invoice can stay `to_be_processed` before
+> *and after* it is matched and fully paid. This filter therefore misses unpaid
+> invoices still in `to_be_processed`. To know what is unpaid, read
+> `remaining_amount_with_tax` (non-zero = not settled; **negative** on supplier
+> invoices).
+
 ### Customer outstandings
 
 Fetch the period, then sort in memory on `status` in `late`, `partially_paid`,

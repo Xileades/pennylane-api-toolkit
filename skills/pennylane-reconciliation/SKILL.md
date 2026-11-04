@@ -43,6 +43,13 @@ PLGetAll 'company-a' 'supplier_invoices' @(
 )
 ```
 
+> **Caution (observed 2026-11-04, § 25 of `docs/PITFALLS.md`).** `payment_status` does
+> not follow reconciliation: a supplier invoice can stay `to_be_processed` before
+> *and after* it is matched and fully paid. This filter therefore misses unpaid
+> invoices still in `to_be_processed`. To know what is unpaid, read
+> `remaining_amount_with_tax` (non-zero = not settled; **negative** on supplier
+> invoices).
+
 ### Which field tells the truth
 
 The documentation declares none authoritative. In practice:
@@ -50,7 +57,7 @@ The documentation declares none authoritative. In practice:
 | Question | Source |
 |---|---|
 | Which links exist? | `PLMatchesSupplier` / `PLMatchesCustomer` — the real list |
-| How much is left to pay? | `remaining_amount_with_tax` on the invoice |
+| How much is left to pay? | `remaining_amount_with_tax` on the invoice (0 = settled; negative on supplier invoices = unpaid) |
 | Transaction balance? | `outstanding_balance` |
 | Convenience flag | `reconciled` (**supplier invoice only**), `paid` |
 
